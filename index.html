@@ -7,89 +7,52 @@
 </head>
 <body>
 <p id="question"></p>
-<form id="box" onsubmit="return validate_form()">
+<form id="box">
     <input type="text" name="answer">
     <button type="submit">Submit</button>
 </form>
 <p id="result"></p>
 <script>
     let index = 0
-    function validate_form() {
-        fetch("Vocab List.csv")
-            .then(response => response.text())
-            .then(vocab_list_csv => {
-                let vocab_list = vocab_list_csv.split("\r\n")
-                keys = []
-                for (let i = 0; i < vocab_list.length - 1; i++) {
-                    let key = vocab_list[i].split(",")
-                    keys.push([key[0],key[1]])
-                }
-                // for (let i = 0; i < keys.length; i++) {
-                    // let question = document.getElementById("question")
-                    // question.textContent = keys[i][0]
-                // }
-                let question = document.getElementById("question")
-                question.textContent = keys[index][0]
-                let answer = document.forms["box"]["answer"].value
-                let result_text
-                if (answer.toLowerCase() == keys[index - 1][1].toLowerCase()) {
-                    result_text = "correct"
-                }
-                else {
-                    result_text = "incorrect"
-                }
-                let result = document.getElementById("result")
-                result.textContent = result_text
-            })
-        // document.forms["box"]["answer"].value = ""
-        // document.forms["box"]["answer"].focus()
-        index += 1
-        return false
-
+    let keys = []
+    async function fetch_it() {
+        let vocab_list = await fetch("Vocab List.csv")
+        vocab_list = await vocab_list.text()
+        vocab_list = vocab_list.split(/\r?\n/)
+        for (const char of vocab_list[22]) {
+            console.log(char, char.charCodeAt(0));
+        }
+        let keys = []
+        for (let i = 0; i < vocab_list.length - 1; i++) {
+            let key = vocab_list[i].split(",")
+            keys.push([key[0],key[1]])
+        }
+        return keys
     }
-    // fetch_keys()
-    fetch("Vocab List.csv")
-        .then(response => response.text())
-        .then(vocab_list_csv => {
-            let vocab_list = vocab_list_csv.split("\r\n")
-            keys = []
-            for (let i = 0; i < vocab_list.length - 1; i++) {
-                let key = vocab_list[i].split(",")
-                keys.push([key[0],key[1]])
-            }
-            // for (let i = 0; i < keys.length; i++) {
-                // let question = document.getElementById("question")
-                // question.textContent = keys[i][0]
-            // }
-            let question = document.getElementById("question")
-            question.textContent = keys[index][0]
-        })
-
-    // function fetched_keys() {
-    //     fetch_keys(function() {
-    //         console.log(keys)
-    //     })
-    // }
-
-    // fetched_keys()
-
-    // function validate_form() {
-    //     let answer = document.forms["box"]["answer"].value
-    //     let result_text
-    //     if (answer == "hello") {
-    //         result_text = "correct"
-    //     }
-    //     else {
-    //         result_text = "incorrect"
-    //     }
-    //     let result = document.getElementById("result")
-    //     result.textContent = result_text
-    //     document.forms["box"]["answer"].value = ""
-    //     document.forms["box"]["answer"].focus()
-    //     index += 1
-    //     fetch_keys()
-    //     return false
-    // }
+    async function begin_quiz() {
+        keys = await fetch_it()
+        console.log(keys[22][1])
+        document.getElementById("question").textContent = keys[index][0]
+    }
+    async function validate_form(event) {
+        event.preventDefault()
+        console.log(keys)
+        let answer = document.forms["box"]["answer"].value
+        let result_text
+        if (answer.toLowerCase() == keys[index][1].toLowerCase()) {
+            result_text = "correct"
+        }
+        else {
+            result_text = "incorrect"
+        }
+        document.getElementById("result").textContent = result_text
+        index += 1
+        document.getElementById("question").textContent = keys[index][0]
+        document.forms["box"]["answer"].value = ""
+        document.forms["box"]["answer"].focus()
+    }
+    document.getElementById("box").addEventListener("submit", validate_form)
+    begin_quiz()
 </script>
 </body>
 </html>
