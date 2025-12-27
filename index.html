@@ -13,15 +13,12 @@
 </form>
 <p id="result"></p>
 <script>
-    let index = 0
+    let index = 22
     let keys = []
     async function fetch_it() {
         let vocab_list = await fetch("Vocab List.csv")
         vocab_list = await vocab_list.text()
-        vocab_list = vocab_list.split(/\r?\n/)
-        for (const char of vocab_list[22]) {
-            console.log(char, char.charCodeAt(0));
-        }
+        vocab_list = vocab_list.split("\r\n")
         let keys = []
         for (let i = 0; i < vocab_list.length - 1; i++) {
             let key = vocab_list[i].split(",")
@@ -31,25 +28,39 @@
     }
     async function begin_quiz() {
         keys = await fetch_it()
-        console.log(keys[22][1])
         document.getElementById("question").textContent = keys[index][0]
     }
     async function validate_form(event) {
         event.preventDefault()
-        console.log(keys)
         let answer = document.forms["box"]["answer"].value
-        let result_text
-        if (answer.toLowerCase() == keys[index][1].toLowerCase()) {
-            result_text = "correct"
+        result = document.getElementById("result")
+        if (normalize_german(answer) == normalize_german(keys[index][1])) {
+            result.innerHTML = "correct"
         }
         else {
-            result_text = "incorrect"
+            result.innerHTML = "incorrect<br>the correct answer is: "
+            + keys[index][1].toString()
         }
-        document.getElementById("result").textContent = result_text
         index += 1
         document.getElementById("question").textContent = keys[index][0]
         document.forms["box"]["answer"].value = ""
         document.forms["box"]["answer"].focus()
+    }
+    function normalize_german(word) {
+        return word
+            .toLowerCase()
+            .replaceAll("ä", "ae")
+            .replaceAll("ö", "oe")
+            .replaceAll("ü", "ue")
+            .replaceAll("ß", "ss")
+    }
+    function normalize_german_lax(word) {
+        return word
+            .toLowerCase()
+            .replaceAll("ä", "a")
+            .replaceAll("ö", "o")
+            .replaceAll("ü", "u")
+            .replaceAll("ß", "s")
     }
     document.getElementById("box").addEventListener("submit", validate_form)
     begin_quiz()
