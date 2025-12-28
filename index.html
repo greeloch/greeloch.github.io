@@ -55,16 +55,22 @@
         result = document.getElementById("result")
         if (normalize_german(answer) == normalize_german(keys[order[index]][1])) {
             result.innerHTML = "correct"
+            next_word()
         }
-        else {
+        else if (submit_flag) {
             result.innerHTML = "incorrect<br>the correct answer is: "
             + keys[order[index]][1].toString()
+            submit_flag = false
+            next_word()
         }
+    }
+    function next_word() {
         index += 1
         document.getElementById("question").textContent = keys[order[index]][0]
         document.forms["box"]["answer"].value = ""
         document.forms["box"]["answer"].focus()
     }
+    const regexp = /[^a-zA-Z' ]/g
     function normalize_german(word) {
         return word
             .toLowerCase()
@@ -72,6 +78,7 @@
             .replaceAll("ö", "oe")
             .replaceAll("ü", "ue")
             .replaceAll("ß", "ss")
+            .replace(regexp, "")
     }
     function normalize_german_lax(word) {
         return word
@@ -80,8 +87,14 @@
             .replaceAll("ö", "o")
             .replaceAll("ü", "u")
             .replaceAll("ß", "s")
+            .replace(regexp, "")
     }
-    document.getElementById("box").addEventListener("submit", validate_form)
+    let submit_flag = false
+    document.getElementById("box").addEventListener("input", validate_form)
+    document.getElementById("box").addEventListener("submit", function(event) {
+        submit_flag = true
+        validate_form(event)
+    })
     begin_quiz()
 </script>
 </body>
