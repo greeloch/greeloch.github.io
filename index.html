@@ -32,10 +32,10 @@
             let key = vocab_list[i].split(",")
             keys.push([key[0],key[1]])
         }
-        return [order, keys]
+        return keys
     }
     async function begin_quiz() {
-        [order, keys] = await fetch_it()
+        keys = await fetch_it()
         const ordering = document.getElementById("ordering").value
         if (ordering == "random") {
             const order_length = order.length
