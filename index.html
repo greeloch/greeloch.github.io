@@ -8,41 +8,60 @@
 <body>
 <p id="question"></p>
 <form id="box">
-    <input type="text" name="answer">
+    <input type="text" id="answer">
     <button type="submit">Submit</button>
 </form>
 <p id="result"></p>
+<label for="ordering">Ordering:</label>
+<select id="ordering">
+    <option value="random">Random</option>
+    <option value="sequential">Sequential</option>
+</select>
 <script>
+    let order
     let index = 0
-    let keys = []
+    let keys
     async function fetch_it() {
         let vocab_list = await fetch("Vocab List.csv")
         vocab_list = await vocab_list.text()
         vocab_list = vocab_list.split("\r\n")
-        let keys = []
+        order = []
+        keys = []
         for (let i = 0; i < vocab_list.length - 1; i++) {
+            order.push(i)
             let key = vocab_list[i].split(",")
             keys.push([key[0],key[1]])
         }
-        return keys
+        return [order, keys]
     }
     async function begin_quiz() {
-        keys = await fetch_it()
-        document.getElementById("question").textContent = keys[index][0]
+        [order, keys] = await fetch_it()
+        const ordering = document.getElementById("ordering").value
+        if (ordering == "random") {
+            const order_length = order.length
+            let order_copy = order
+            order = []
+            for (let i = 0; i < order_length; i++) {
+                let random = Math.floor(order_copy.length*Math.random())
+                order.push(order_copy[random])
+                order_copy.splice(random, 1)
+            }
+        }
+        document.getElementById("question").textContent = keys[order[index]][0]
     }
     async function validate_form(event) {
         event.preventDefault()
         let answer = document.forms["box"]["answer"].value
         result = document.getElementById("result")
-        if (normalize_german(answer) == normalize_german(keys[index][1])) {
+        if (normalize_german(answer) == normalize_german(keys[order[index]][1])) {
             result.innerHTML = "correct"
         }
         else {
             result.innerHTML = "incorrect<br>the correct answer is: "
-            + keys[index][1].toString()
+            + keys[order[index]][1].toString()
         }
         index += 1
-        document.getElementById("question").textContent = keys[index][0]
+        document.getElementById("question").textContent = keys[order[index]][0]
         document.forms["box"]["answer"].value = ""
         document.forms["box"]["answer"].focus()
     }
