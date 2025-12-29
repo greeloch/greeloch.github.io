@@ -25,7 +25,15 @@
         <option value="lenient">Accept Non-Umlaut Counterparts for Umlauts and "s" for Essets</option>
     </select>
     <form id="length_box">
+        <!-- XNUMBER MUST BE INTEGER > 0
+        XDISPLAY CORRECT ANSWER WHEN QUIZ ENDS
+        XBUTTON TO SEE REPORT
+        HAVE BUTTONS AT END OF QUIZ TO RESTART, RESET, OR GO TO SETTINGS
+        COUNTER DURING QUIZ
+        XSEE COUNTER/TOTAL FOR REPORT
+        HAVE OPTION FOR QUIZ LENGTH OF ENTIRE DATASET -->
         Quiz Length: <input type="text" id="length"> Questions
+        <p id="length_error"></p>
     </form>
     <form id="begin_quiz">
         <button type="submit">Begin Quiz</button>
@@ -38,13 +46,18 @@
         <button type="submit">Submit</button>
     </form>
     <p id="result"></p>
+    <form id="end_quiz">
+        <button type="submit">See Report</button>
+    </form>
 </div>
 <div id="quiz_report">
     <p id="grade"></p>
 </div>
 <script>
+    document.getElementById("length_error").style.display = "none"
     document.getElementById("quiz").style.display = "none"
     document.getElementById("quiz_report").style.display = "none"
+    document.getElementById("end_quiz").style.display = "none"
     const quiz_parameters = {}
     let order
     let index = 0
@@ -63,8 +76,8 @@
         }
         return keys
     }
-    async function begin_quiz(event) {
-        event.preventDefault()
+    async function begin_quiz() {
+        // event.preventDefault()
         keys = await fetch_it()
         if (quiz_parameters.ordering == "random") {
             const order_length = order.length
@@ -104,12 +117,21 @@
             document.forms["answer_box"]["answer"].focus()
         }
         else {
-            document.getElementById("quiz").style.display = "none"
-            document.getElementById("quiz_report").style.display = "block"
-            document.getElementById("grade").innerHTML = "Percent Correct: "
-            + Math.round(correct_count/quiz_parameters.length*100*10)/10
-            + "%"
+            document.getElementById("answer_box").style.display = "none"
+            document.getElementById("end_quiz").style.display = "block"
         }
+    }
+    function end_quiz(event) {
+        event.preventDefault()
+        document.getElementById("quiz").style.display = "none"
+        document.getElementById("quiz_report").style.display = "block"
+        document.getElementById("grade").innerHTML = "Questions Correct: "
+        + correct_count
+        + "/"
+        + quiz_parameters.length
+        + "<br>Grade: "
+        + Math.round(correct_count/quiz_parameters.length*100*10)/10
+        + "%"
     }
     const regexp = /[^a-zA-Z' ]/g
     function normalize_german(word) {
@@ -131,14 +153,22 @@
             .replace(regexp, "")
     }
     document.getElementById("begin_quiz").addEventListener("submit", function(event) {
+        event.preventDefault()
         quiz_parameters.ordering = document.getElementById("ordering").value
         quiz_parameters.submit_method = document.getElementById("submit_method").value
         quiz_parameters.german_characters = document.getElementById("german_characters").value
-        quiz_parameters.length = document.getElementById("length").value
-        Object.freeze(quiz_parameters)
-        document.getElementById("setup").style.display = "none"
-        document.getElementById("quiz").style.display = "block"
-        begin_quiz(event)
+        const length = document.getElementById("length").value
+        if (length == Math.round(length) && length > 0) {
+            quiz_parameters.length = length
+            Object.freeze(quiz_parameters)
+            document.getElementById("setup").style.display = "none"
+            document.getElementById("quiz").style.display = "block"
+            begin_quiz()
+        }
+        else {
+            document.getElementById("length_error").style.display = "block"
+            document.getElementById("length_error").textContent = "Please enter an integer > 0"
+        }
     })
     let submit_flag = false
     document.getElementById("answer_box").addEventListener("input", function(event) {
@@ -150,6 +180,7 @@
         submit_flag = true
         validate_form(event)
     })
+    document.getElementById("end_quiz").addEventListener("submit", end_quiz)
 </script>
 </body>
 </html>
