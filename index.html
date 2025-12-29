@@ -6,20 +6,49 @@
     <title>German Vocab</title>
 </head>
 <body>
-<p id="question"></p>
-<form id="box">
-    <input type="text" id="answer">
-    <button type="submit">Submit</button>
-</form>
-<p id="result"></p>
-<label for="ordering">Ordering:</label>
-<select id="ordering">
-    <option value="random">Random</option>
-    <option value="sequential">Sequential</option>
-</select>
+<div id="setup">
+    <label for="ordering">Ordering:</label>
+    <select id="ordering">
+        <option value="random">Random</option>
+        <option value="sequential">Sequential</option>
+    </select>
+    <br>
+    <label for="submit_method">Submit Method:</label>
+    <select id="submit_method">
+        <option value="auto">Automatic</option>
+        <option value="manual">Answer upon Submit</option>
+    </select>
+    <br>
+    <label for="german_characters">German Characters:</label>
+    <select id="german_characters">
+        <option value="strict">Require German Characters or "-e" for Umlauts and "ss" for Essets</option>
+        <option value="lenient">Accept Non-Umlaut Counterparts for Umlauts and "s" for Essets</option>
+    </select>
+    <form id="length_box">
+        Quiz Length: <input type="text" id="length"> Questions
+    </form>
+    <form id="begin_quiz">
+        <button type="submit">Begin Quiz</button>
+    </form>
+</div>
+<div id="quiz">
+    <p id="question"></p>
+    <form id="answer_box">
+        <input type="text" id="answer">
+        <button type="submit">Submit</button>
+    </form>
+    <p id="result"></p>
+</div>
+<div id="quiz_report">
+    <p id="grade"></p>
+</div>
 <script>
+    document.getElementById("quiz").style.display = "none"
+    document.getElementById("quiz_report").style.display = "none"
+    const quiz_parameters = {}
     let order
     let index = 0
+    let correct_count = 0
     let keys
     async function fetch_it() {
         let vocab_list = await fetch("Vocab List.csv")
@@ -34,10 +63,10 @@
         }
         return keys
     }
-    async function begin_quiz() {
+    async function begin_quiz(event) {
+        event.preventDefault()
         keys = await fetch_it()
-        const ordering = document.getElementById("ordering").value
-        if (ordering == "random") {
+        if (quiz_parameters.ordering == "random") {
             const order_length = order.length
             let order_copy = order
             order = []
@@ -48,27 +77,39 @@
             }
         }
         document.getElementById("question").textContent = keys[order[index]][0]
+        document.forms["answer_box"]["answer"].focus()
     }
     async function validate_form(event) {
         event.preventDefault()
-        let answer = document.forms["box"]["answer"].value
+        let answer = document.forms["answer_box"]["answer"].value
         result = document.getElementById("result")
-        if (normalize_german(answer) == normalize_german(keys[order[index]][1])) {
+        if (quiz_parameters.german_characters == "strict" && normalize_german(answer) == normalize_german(keys[order[index]][1])
+        || quiz_parameters.german_characters == "lenient" && normalize_german_lenient(answer) == normalize_german_lenient(keys[order[index]][1])) {
+            correct_count += 1
             result.innerHTML = "correct"
             next_word()
         }
         else if (submit_flag) {
             result.innerHTML = "incorrect<br>the correct answer is: "
-            + keys[order[index]][1].toString()
+            + keys[order[index]][1]
             submit_flag = false
             next_word()
         }
     }
     function next_word() {
         index += 1
-        document.getElementById("question").textContent = keys[order[index]][0]
-        document.forms["box"]["answer"].value = ""
-        document.forms["box"]["answer"].focus()
+        if (index < quiz_parameters.length) {
+            document.getElementById("question").textContent = keys[order[index]][0]
+            document.forms["answer_box"]["answer"].value = ""
+            document.forms["answer_box"]["answer"].focus()
+        }
+        else {
+            document.getElementById("quiz").style.display = "none"
+            document.getElementById("quiz_report").style.display = "block"
+            document.getElementById("grade").innerHTML = "Percent Correct: "
+            + Math.round(correct_count/quiz_parameters.length*100*10)/10
+            + "%"
+        }
     }
     const regexp = /[^a-zA-Z' ]/g
     function normalize_german(word) {
@@ -80,7 +121,7 @@
             .replaceAll("ß", "ss")
             .replace(regexp, "")
     }
-    function normalize_german_lax(word) {
+    function normalize_german_lenient(word) {
         return word
             .toLowerCase()
             .replaceAll("ä", "a")
@@ -89,13 +130,26 @@
             .replaceAll("ß", "s")
             .replace(regexp, "")
     }
+    document.getElementById("begin_quiz").addEventListener("submit", function(event) {
+        quiz_parameters.ordering = document.getElementById("ordering").value
+        quiz_parameters.submit_method = document.getElementById("submit_method").value
+        quiz_parameters.german_characters = document.getElementById("german_characters").value
+        quiz_parameters.length = document.getElementById("length").value
+        Object.freeze(quiz_parameters)
+        document.getElementById("setup").style.display = "none"
+        document.getElementById("quiz").style.display = "block"
+        begin_quiz(event)
+    })
     let submit_flag = false
-    document.getElementById("box").addEventListener("input", validate_form)
-    document.getElementById("box").addEventListener("submit", function(event) {
+    document.getElementById("answer_box").addEventListener("input", function(event) {
+        if (quiz_parameters.submit_method == "auto") {
+            validate_form(event)
+        }
+    })
+    document.getElementById("answer_box").addEventListener("submit", function(event) {
         submit_flag = true
         validate_form(event)
     })
-    begin_quiz()
 </script>
 </body>
 </html>
