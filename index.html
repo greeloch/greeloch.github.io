@@ -25,21 +25,16 @@
         <option value="lenient">Accept Non-Umlaut Counterparts for Umlauts and "s" for Essets</option>
     </select>
     <form id="length_box">
-        <!-- XNUMBER MUST BE INTEGER > 0
-        XDISPLAY CORRECT ANSWER WHEN QUIZ ENDS
-        XBUTTON TO SEE REPORT
-        HAVE BUTTONS AT END OF QUIZ TO RESTART, RESET, OR GO TO SETTINGS
-        COUNTER DURING QUIZ
-        XSEE COUNTER/TOTAL FOR REPORT
-        HAVE OPTION FOR QUIZ LENGTH OF ENTIRE DATASET -->
         Quiz Length: <input type="text" id="length"> Questions
-        <p id="length_error"></p>
+        <br>
+        <span id="length_error"></span>
     </form>
     <form id="begin_quiz">
         <button type="submit">Begin Quiz</button>
     </form>
 </div>
 <div id="quiz">
+    <p id="question_count"></p>
     <p id="question"></p>
     <form id="answer_box">
         <input type="text" id="answer">
@@ -51,51 +46,54 @@
     </form>
 </div>
 <div id="quiz_report">
-    <p id="grade"></p>
+    <scan id="grade"></scan>
+    <form id="reset_quiz">
+        <button type="submit">Reset</button>
+    </form>
+    <form id="restart_quiz">
+        <button type="submit">Restart</button>
+    </form>
+    <form id="new_quiz">
+        <button type="submit">New Quiz</button>
+    </form>
 </div>
 <script>
-    document.getElementById("length_error").style.display = "none"
+    let result = document.getElementById("result")
     document.getElementById("quiz").style.display = "none"
     document.getElementById("quiz_report").style.display = "none"
     document.getElementById("end_quiz").style.display = "none"
     const quiz_parameters = {}
     let order
-    let index = 0
-    let correct_count = 0
+    let index
+    let correct_count
     let keys
     async function fetch_it() {
         let vocab_list = await fetch("Vocab List.csv")
         vocab_list = await vocab_list.text()
         vocab_list = vocab_list.split("\r\n")
-        order = []
         keys = []
-        for (let i = 0; i < vocab_list.length - 1; i++) {
-            order.push(i)
+        for (let i = 0; i < vocab_list.length; i++) {
             let key = vocab_list[i].split(",")
             keys.push([key[0],key[1]])
         }
         return keys
     }
-    async function begin_quiz() {
-        // event.preventDefault()
-        keys = await fetch_it()
-        if (quiz_parameters.ordering == "random") {
-            const order_length = order.length
-            let order_copy = order
-            order = []
-            for (let i = 0; i < order_length; i++) {
-                let random = Math.floor(order_copy.length*Math.random())
-                order.push(order_copy[random])
-                order_copy.splice(random, 1)
-            }
-        }
+    function begin_quiz() {
+        event.preventDefault()
+        index = 0
+        correct_count = 0
+        document.getElementById("quiz_report").style.display = "none"
+        document.getElementById("quiz").style.display = "block"
+        document.getElementById("answer_box").style.display = "block"
+        document.getElementById("end_quiz").style.display = "none"
+        document.getElementById("question_count").innerHTML = "Question 1/" + quiz_parameters.length
         document.getElementById("question").textContent = keys[order[index]][0]
+        result.innerHTML = ""
         document.forms["answer_box"]["answer"].focus()
     }
-    async function validate_form(event) {
+    function validate_form(event) {
         event.preventDefault()
         let answer = document.forms["answer_box"]["answer"].value
-        result = document.getElementById("result")
         if (quiz_parameters.german_characters == "strict" && normalize_german(answer) == normalize_german(keys[order[index]][1])
         || quiz_parameters.german_characters == "lenient" && normalize_german_lenient(answer) == normalize_german_lenient(keys[order[index]][1])) {
             correct_count += 1
@@ -111,9 +109,10 @@
     }
     function next_word() {
         index += 1
+        document.forms["answer_box"]["answer"].value = ""
         if (index < quiz_parameters.length) {
+            document.getElementById("question_count").innerHTML = "Question " + (index + 1) + "/" + quiz_parameters.length
             document.getElementById("question").textContent = keys[order[index]][0]
-            document.forms["answer_box"]["answer"].value = ""
             document.forms["answer_box"]["answer"].focus()
         }
         else {
@@ -152,22 +151,57 @@
             .replaceAll("ß", "s")
             .replace(regexp, "")
     }
+    function random_order(order) {
+        const order_length = order.length
+        let order_copy = order
+        order = []
+        for (let i = 0; i < order_length; i++) {
+            let random = Math.floor(order_copy.length*Math.random())
+            order.push(order_copy[random])
+            order_copy.splice(random, 1)
+        }
+        return order
+    }
+    function sequential_order(length) {
+        order = []
+        for (let i = 0; i < length; i++) {
+            order.push(i)
+        }
+        return order
+    }
+    (async () => {
+        keys = await fetch_it()
+    })()
+    let valid_length_flag = false
+    document.getElementById("length_box").addEventListener("input", function(event) {
+        const length = document.getElementById("length")
+        if (length.value == Math.round(length.value) && length.value > 0 && length.value <= keys.length) {
+            valid_length_flag = true
+            length.style.backgroundColor = ""
+            document.getElementById("length_error").innerHTML = ""
+        }
+        else {
+            valid_length_flag = false
+            length.style.backgroundColor = "#ff0000"
+            document.getElementById("length_error").innerHTML = "Please Enter an Integer Between 1 and "
+            + keys.length
+        }
+    })
     document.getElementById("begin_quiz").addEventListener("submit", function(event) {
         event.preventDefault()
         quiz_parameters.ordering = document.getElementById("ordering").value
         quiz_parameters.submit_method = document.getElementById("submit_method").value
         quiz_parameters.german_characters = document.getElementById("german_characters").value
-        const length = document.getElementById("length").value
-        if (length == Math.round(length) && length > 0) {
-            quiz_parameters.length = length
-            Object.freeze(quiz_parameters)
+        const length = document.getElementById("length")
+        if (valid_length_flag) {
+            quiz_parameters.length = Math.round(length.value)
+            order = sequential_order(keys.length)
+            if (quiz_parameters.ordering == "random") {
+                order = random_order(order)
+            }
             document.getElementById("setup").style.display = "none"
             document.getElementById("quiz").style.display = "block"
             begin_quiz()
-        }
-        else {
-            document.getElementById("length_error").style.display = "block"
-            document.getElementById("length_error").textContent = "Please enter an integer > 0"
         }
     })
     let submit_flag = false
@@ -181,6 +215,18 @@
         validate_form(event)
     })
     document.getElementById("end_quiz").addEventListener("submit", end_quiz)
+    document.getElementById("reset_quiz").addEventListener("submit", begin_quiz)
+    document.getElementById("restart_quiz").addEventListener("submit", function(event) {
+        if (quiz_parameters.ordering == "random") {
+            order = random_order(order)
+        }
+        begin_quiz()
+    })
+    document.getElementById("new_quiz").addEventListener("submit", function(event) {
+        event.preventDefault()
+        document.getElementById("quiz_report").style.display = "none"
+        document.getElementById("setup").style.display = "block"
+    })
 </script>
 </body>
 </html>
