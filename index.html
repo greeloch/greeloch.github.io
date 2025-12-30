@@ -56,6 +56,9 @@
     <form id="new_quiz">
         <button type="submit">New Quiz</button>
     </form>
+    <form id="download_quiz_data">
+        <button type="submit">Download Quiz Data</button>
+    </form>
 </div>
 <script>
     let result = document.getElementById("result")
@@ -67,16 +70,11 @@
     let index
     let correct_count
     let keys
-    async function fetch_it() {
-        let vocab_list = await fetch("Vocab List.csv")
-        vocab_list = await vocab_list.text()
-        vocab_list = vocab_list.split("\r\n")
-        keys = []
-        for (let i = 0; i < vocab_list.length; i++) {
-            let key = vocab_list[i].split(",")
-            keys.push([key[0],key[1]])
-        }
-        return keys
+    let quiz_data
+    async function fetch_csv(csv) {
+        let rows = await fetch(csv)
+        rows = await rows.text()
+        return rows
     }
     function begin_quiz() {
         event.preventDefault()
@@ -97,6 +95,7 @@
         if (quiz_parameters.german_characters == "strict" && normalize_german(answer) == normalize_german(keys[order[index]][1])
         || quiz_parameters.german_characters == "lenient" && normalize_german_lenient(answer) == normalize_german_lenient(keys[order[index]][1])) {
             correct_count += 1
+            quiz_data[order[index]][0] += 1
             result.innerHTML = "correct"
             next_word()
         }
@@ -108,6 +107,7 @@
         }
     }
     function next_word() {
+        quiz_data[order[index]][1] += 1
         index += 1
         document.forms["answer_box"]["answer"].value = ""
         if (index < quiz_parameters.length) {
@@ -170,7 +170,12 @@
         return order
     }
     (async () => {
-        keys = await fetch_it()
+        keys = await fetch_csv("Vocab List.csv")
+        keys = keys.split("\r\n")
+        keys = keys.map(row => row.split(","))
+        quiz_data = await fetch_csv("Quiz Data.csv")
+        quiz_data = quiz_data.split("\n")
+        quiz_data = quiz_data.map(row => row.split(",").map(cell => Math.floor(cell)))
     })()
     let valid_length_flag = false
     document.getElementById("length_box").addEventListener("input", function(event) {
@@ -231,6 +236,16 @@
         event.preventDefault()
         document.getElementById("quiz_report").style.display = "none"
         document.getElementById("setup").style.display = "block"
+    })
+    document.getElementById("download_quiz_data").addEventListener("submit", function(event) {
+        quiz_data = quiz_data.map(row => row.join(",")).join("\n")
+        const blob = new Blob([quiz_data], {type: "text/csv"})
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = "Quiz Data.csv"
+        a.click()
+        URL.revokeObjectURL(url)
     })
 </script>
 </body>
