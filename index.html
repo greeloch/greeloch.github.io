@@ -203,6 +203,11 @@
             document.getElementById("quiz").style.display = "block"
             begin_quiz()
         }
+        else {
+            length.style.backgroundColor = "#ff0000"
+            document.getElementById("length_error").innerHTML = "Please Enter an Integer Between 1 and "
+            + keys.length
+        }
     })
     let submit_flag = false
     document.getElementById("answer_box").addEventListener("input", function(event) {
