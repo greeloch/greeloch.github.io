@@ -24,6 +24,11 @@
         <option value="strict">Require German Characters or "-e" for Umlauts and "ss" for Essets</option>
         <option value="lenient">Accept Non-Umlaut Counterparts for Umlauts and "s" for Essets</option>
     </select>
+    <form id="question_threshold_box">
+        Question Threshold: Don't Ask Questions with Greater than <input type="text" id="question_threshold"> % Correct
+        <br>
+        <span id="question_threshold_error"></span>
+    </form>
     <form id="length_box">
         Quiz Length: <input type="text" id="length"> Questions
         <br>
@@ -61,7 +66,7 @@
     </form>
 </div>
 <script>
-    let result = document.getElementById("result")
+    const result = document.getElementById("result")
     document.getElementById("quiz").style.display = "none"
     document.getElementById("quiz_report").style.display = "none"
     document.getElementById("end_quiz").style.display = "none"
@@ -71,6 +76,7 @@
     let correct_count
     let keys
     let quiz_data
+    let max_length
     async function fetch_csv(csv) {
         let rows = await fetch(csv)
         rows = await rows.text()
@@ -79,14 +85,16 @@
     function begin_quiz() {
         event.preventDefault()
         index = 0
+        question_number = 0
         correct_count = 0
+        document.getElementById("setup").style.display = "none"
         document.getElementById("quiz_report").style.display = "none"
         document.getElementById("quiz").style.display = "block"
         document.getElementById("answer_box").style.display = "block"
         document.getElementById("end_quiz").style.display = "none"
-        document.getElementById("question_count").innerHTML = "Question 1/" + quiz_parameters.length
-        document.getElementById("question").textContent = keys[order[index]][0]
         result.innerHTML = ""
+        document.getElementById("question_count").innerHTML = "Question " + (index + 1) + "/" + quiz_parameters.length
+        document.getElementById("question").textContent = keys[order[index]][0]
         document.forms["answer_box"]["answer"].focus()
     }
     function validate_form(event) {
@@ -96,18 +104,19 @@
         || quiz_parameters.german_characters == "lenient" && normalize_german_lenient(answer) == normalize_german_lenient(keys[order[index]][1])) {
             correct_count += 1
             quiz_data[order[index]][0] += 1
+            quiz_data[order[index]][1] += 1
             result.innerHTML = "correct"
             next_word()
         }
         else if (submit_flag) {
+            submit_flag = false
+            quiz_data[order[index]][1] += 1
             result.innerHTML = "incorrect<br>the correct answer is: "
             + keys[order[index]][1]
-            submit_flag = false
             next_word()
         }
     }
     function next_word() {
-        quiz_data[order[index]][1] += 1
         index += 1
         document.forms["answer_box"]["answer"].value = ""
         if (index < quiz_parameters.length) {
@@ -122,8 +131,6 @@
     }
     function end_quiz(event) {
         event.preventDefault()
-        document.getElementById("quiz").style.display = "none"
-        document.getElementById("quiz_report").style.display = "block"
         document.getElementById("grade").innerHTML = "Questions Correct: "
         + correct_count
         + "/"
@@ -131,6 +138,51 @@
         + "<br>Grade: "
         + Math.round(correct_count/quiz_parameters.length*100*10)/10
         + "%"
+        max_length = get_max_length(quiz_parameters.question_threshold)
+        if (max_length == 0) {
+            document.getElementById("new_quiz").style.display = "none"
+        }
+        order = truncate_order(order)
+        if (quiz_parameters.length == 0) {
+            document.getElementById("reset_quiz").style.display = "none"
+            document.getElementById("restart_quiz").style.display = "none"
+        }
+        else {
+            document.getElementById("reset_quiz").style.display = "block"
+            document.getElementById("restart_quiz").style.display = "block"
+        }
+        document.getElementById("quiz").style.display = "none"
+        document.getElementById("quiz_report").style.display = "block"
+    }
+    function get_max_length(question_threshold) {
+        let count = 0
+        for (let i = 0; i < quiz_data.length; i++) {
+            if (quiz_data[i][1] == 0
+            || quiz_data[i][0]/quiz_data[i][1] <= question_threshold) {
+                count += 1
+            }
+        }
+        return count
+    }
+    function check_length() {
+        length_value = get_int(length.value)
+        if (length_value > 0 && length_value <= max_length) {
+            valid_length_flag = true
+            length.style.backgroundColor = ""
+            document.getElementById("length_error").innerHTML = ""
+        }
+        else {
+            valid_length_flag = false
+            if (length.style.backgroundColor != "") {
+                document.getElementById("length_error").innerHTML = "Please Enter an Integer Between 1 and "
+                + max_length
+            }
+            if (length.value != "") {
+                length.style.backgroundColor = "#ff0000"
+                document.getElementById("length_error").innerHTML = "Please Enter an Integer Between 1 and "
+                + max_length
+            }
+        }
     }
     const regexp = /[^a-zA-Z' ]/g
     function normalize_german(word) {
@@ -151,6 +203,13 @@
             .replaceAll("ß", "s")
             .replace(regexp, "")
     }
+    function sequential_order(length) {
+        order = []
+        for (let i = 0; i < length; i++) {
+            order.push(i)
+        }
+        return order
+    }
     function random_order(order) {
         const order_length = order.length
         let order_copy = order
@@ -162,12 +221,36 @@
         }
         return order
     }
-    function sequential_order(length) {
+    function truncate_order(order) {
+        let order_copy = order
         order = []
-        for (let i = 0; i < length; i++) {
-            order.push(i)
+        for (let i = 0; i < order_copy.length; i++) {
+            if (quiz_data[order_copy[i]][1] == 0
+            || quiz_data[order_copy[i]][0]/quiz_data[order_copy[i]][1] <= quiz_parameters.question_threshold) {
+                order.push(order_copy[i])
+            }
+            if (order.length == quiz_parameters.length) {
+                break
+            }
         }
+        quiz_parameters.length = order.length
         return order
+    }
+    function get_int(value) {
+        if (value.match(/\d+/) == value) {
+            return value
+        }
+        else {
+            return NaN
+        }
+    }
+    function get_float(value) {
+        if (value.match(/\d+\.\d+|\.\d+|\d+/) == value) {
+            return value
+        }
+        else {
+            return NaN
+        }
     }
     (async () => {
         keys = await fetch_csv("Vocab List.csv")
@@ -176,21 +259,38 @@
         quiz_data = await fetch_csv("Quiz Data.csv")
         quiz_data = quiz_data.split("\n")
         quiz_data = quiz_data.map(row => row.split(",").map(cell => Math.floor(cell)))
+        max_length = quiz_data.length
     })()
-    let valid_length_flag = false
-    document.getElementById("length_box").addEventListener("input", function(event) {
-        const length = document.getElementById("length")
-        if (length.value == Math.round(length.value) && length.value > 0 && length.value <= keys.length) {
-            valid_length_flag = true
-            length.style.backgroundColor = ""
-            document.getElementById("length_error").innerHTML = ""
+    let question_threshold = document.getElementById("question_threshold")
+    let question_threshold_value
+    let valid_question_threshold_flag = false
+    let length = document.getElementById("length")
+    let length_value
+    document.getElementById("question_threshold_box").addEventListener("input", function(event) {
+        question_threshold_value = get_float(question_threshold.value)
+        max_length = get_max_length(question_threshold_value/100)
+        if (max_length == 0) {
+            max_length = quiz_data.length
+        }
+        question_threshold.style.backgroundColor = ""
+        document.getElementById("question_threshold_error").innerHTML = ""
+        if (question_threshold_value >= 0 && question_threshold_value <= 100) {
+            valid_question_threshold_flag = true
         }
         else {
-            valid_length_flag = false
-            length.style.backgroundColor = "#ff0000"
-            document.getElementById("length_error").innerHTML = "Please Enter an Integer Between 1 and "
-            + keys.length
+            valid_question_threshold_flag = false
+            if (question_threshold.value != "") {
+                question_threshold.style.backgroundColor = "#ff0000"
+                document.getElementById("question_threshold_error").innerHTML = "Please Enter a Number Between 0 and 100"
+            }
         }
+        check_length()
+    })
+    let valid_length_flag = false
+    document.getElementById("length_box").addEventListener("input", function(event) {
+        length.style.backgroundColor = ""
+        document.getElementById("length_error").innerHTML = ""
+        check_length()
     })
     document.getElementById("begin_quiz").addEventListener("submit", function(event) {
         event.preventDefault()
@@ -198,20 +298,25 @@
         quiz_parameters.submit_method = document.getElementById("submit_method").value
         quiz_parameters.german_characters = document.getElementById("german_characters").value
         const length = document.getElementById("length")
-        if (valid_length_flag) {
-            quiz_parameters.length = Math.round(length.value)
+        const question_threshold = document.getElementById("question_threshold")
+        if (!valid_length_flag) {
+            length.style.backgroundColor = "#ff0000"
+            document.getElementById("length_error").innerHTML = "Please Enter an Integer Between 1 and "
+            + max_length
+        }
+        if (!valid_question_threshold_flag) {
+            question_threshold.style.backgroundColor = "#ff0000"
+            document.getElementById("question_threshold_error").innerHTML = "Please Enter a Number Between 0 and 100"
+        }
+        if (valid_length_flag && valid_question_threshold_flag) {
+            quiz_parameters.length = length.value
+            quiz_parameters.question_threshold = question_threshold.value/100
             order = sequential_order(keys.length)
             if (quiz_parameters.ordering == "random") {
                 order = random_order(order)
             }
-            document.getElementById("setup").style.display = "none"
-            document.getElementById("quiz").style.display = "block"
+            order = truncate_order(order)
             begin_quiz()
-        }
-        else {
-            length.style.backgroundColor = "#ff0000"
-            document.getElementById("length_error").innerHTML = "Please Enter an Integer Between 1 and "
-            + keys.length
         }
     })
     let submit_flag = false
